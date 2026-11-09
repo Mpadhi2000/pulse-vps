@@ -36,13 +36,17 @@ npm run build      # static site in ./out
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PULSE_API_URL` | `https://pulse.mayankpadhi.in` | Origin of the Pulse API; the app polls `${PULSE_API_URL}/api/status`. Inlined at build time. |
-| `NEXT_PUBLIC_BASE_PATH` | `""` | Sub-path the site is served from (e.g. `/pulse-vps` on GitHub Pages). Set automatically by the deploy workflow. |
+| `NEXT_PUBLIC_BASE_PATH` | `""` | Only if the site is served from a sub-path. Leave unset on Vercel. |
 
-## Deploy to GitHub Pages
+## Deploy on Vercel
 
-1. Repo **Settings → Pages → Build and deployment → Source** → **GitHub Actions**.
-2. Push to `main` (or run **Deploy to GitHub Pages** from the Actions tab).
-3. Site: `https://mpadhi2000.github.io/pulse-vps/`.
+The project is hosted on Vercel and deploys automatically on every push to `main`
+(preview deployments for other branches).
+
+- Framework preset: **Next.js** (auto-detected), build command `npm run build`.
+- The app is a static export (`output: "export"` → `./out`); Vercel serves it as-is.
+- Optional env var in **Project → Settings → Environment Variables**: `PULSE_API_URL`
+  (defaults to `https://pulse.mayankpadhi.in`). Leave `NEXT_PUBLIC_BASE_PATH` unset.
 
 ## Deploy on the VPS (nginx)
 
@@ -59,5 +63,4 @@ components/          Dashboard, StatGrid, UsageChart, Sparkline, ContainersTable
                      LowerPanels, ThemeToggle, Icons, Badge
 lib/                 usePulse (polling), useHistory (localStorage), series (bucketing/stats),
                      format helpers, API types, config
-.github/workflows/   GitHub Pages CI/CD
 ```

@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
-// GitHub Pages project sites live under /<repo>; the deploy workflow sets this.
+// Optional sub-path (e.g. "/pulse"); leave unset on Vercel.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const nextConfig: NextConfig = {
-  output: "export", // fully static site in ./out — GitHub Pages, nginx, anywhere
+  output: "export", // fully static site in ./out — Vercel, nginx, anywhere
   basePath,
   assetPrefix: basePath || undefined,
   trailingSlash: true,
