@@ -2,7 +2,7 @@
 
 import { usePulse } from "@/lib/usePulse";
 import { PULSE_API_URL, REFRESH_INTERVAL_S } from "@/lib/config";
-import { degradedReasons, relTime } from "@/lib/format";
+import { degradedReasons, fmtServerTs, fmtTime, relTime } from "@/lib/format";
 import { Icon } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 import { StatGrid } from "./StatGrid";
@@ -57,7 +57,7 @@ export function Dashboard() {
             <a className="btn btn-secondary" href="#usage"><Icon name="chart" /> View usage</a>
           </div>
           <div className="hero-meta">
-            <span>Last updated <b>{lastOk ? lastOk.toLocaleTimeString("en-IN", { hour12: false }) : "never"}</b></span>
+            <span>Last updated <b>{lastOk ? fmtTime(lastOk) : "never"}</b></span>
             <span>Next refresh in <b>{countdown}s</b></span>
           </div>
         </div>
@@ -110,7 +110,7 @@ export function Dashboard() {
       <footer className="footer">
         <div className="container footer-inner">
           <span><Icon name="pulse" size={14} /> <b>Pulse</b> · VPS status</span>
-          <span>Server time <b>{data?.time || "—"}</b></span>
+          <span>Server time <b>{fmtServerTs(data?.time)}</b></span>
           <span>API <b className="mono">{apiHost}/api/status</b></span>
         </div>
       </footer>

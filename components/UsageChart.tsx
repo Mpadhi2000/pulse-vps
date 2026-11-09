@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { MetricKey, Sample } from "@/lib/types";
 import { bucketize, inRange, METRICS, segments, stats } from "@/lib/series";
-import { fmtClock, fmtPct } from "@/lib/format";
+import { fmtClock, fmtDate, fmtPct } from "@/lib/format";
 import { REFRESH_INTERVAL_S } from "@/lib/config";
 import { Icon } from "./Icons";
 
@@ -194,7 +194,7 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
 
         {hp && (
           <div className="tooltip" style={x(hp.t) > w / 2 ? { right: w - x(hp.t) + 12 } : { left: x(hp.t) + 12 }}>
-            <div className="t">{new Date(hp.t).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</div>
+            <div className="t">{fmtDate(hp.t, true)}</div>
             {shown.map((m) => (
               <div className="row" key={m.key}>
                 <span className={`swatch${m.dashed ? " dashed" : ""}`} style={{ color: m.color }} />
@@ -208,7 +208,7 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
 
       <div className="chart-foot">
         <span>
-          History is stored in this browser{firstT ? ` since ${new Date(firstT).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}` : ""} (up to 24h).
+          History is stored in this browser{firstT ? ` since ${fmtDate(firstT)}` : ""} (up to 24h).
         </span>
         {samples.length > 0 && <button type="button" className="link-btn" onClick={onClear}>Clear history</button>}
       </div>

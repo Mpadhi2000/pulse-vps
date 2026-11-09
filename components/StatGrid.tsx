@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { PulseStatus, Sample } from "@/lib/types";
-import { fmtPct, has, num, prettyUptime, usageLevel, withUnit } from "@/lib/format";
+import { fmtPct, fmtServerTs, has, num, prettyUptime, usageLevel, withUnit } from "@/lib/format";
 import { Badge } from "./Badge";
 import { Icon, type IconName } from "./Icons";
 import { Sparkline } from "./Sparkline";
@@ -63,7 +63,7 @@ export function StatGrid({ d, samples }: { d: PulseStatus | null; samples: Sampl
 
       <Cell icon="clock" title="Uptime">
         <div className="big md">{loading ? <span className="skeleton">0 days, 0h</span> : prettyUptime(s.uptime)}</div>
-        <div className="meta">{has(s.boot_time) ? <span>Booted <b>{s.boot_time}</b></span> : <span>—</span>}</div>
+        <div className="meta">{has(s.boot_time) ? <span>Booted <b>{fmtServerTs(s.boot_time)}</b></span> : <span>—</span>}</div>
       </Cell>
 
       <Cell icon="globe" title="Nginx">

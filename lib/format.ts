@@ -32,13 +32,37 @@ export function parseBackupTs(s: string | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export const fmtDate = (d: Date) =>
-  d.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+// All times are shown in 12-hour format, e.g. "8:38:31 PM", "09 Nov, 8:38 PM".
+const LOCALE = "en-US";
 
-export const fmtClock = (t: number, withSeconds = false) =>
-  new Date(t).toLocaleTimeString("en-IN", {
-    hour: "2-digit", minute: "2-digit", ...(withSeconds ? { second: "2-digit" } : {}), hour12: false,
+export const fmtTime = (d: Date | number, withSeconds = true) =>
+  new Date(d).toLocaleTimeString(LOCALE, {
+    hour: "numeric", minute: "2-digit", ...(withSeconds ? { second: "2-digit" } : {}), hour12: true,
   });
+
+export const fmtDate = (d: Date | number, withSeconds = false) => {
+  const date = new Date(d);
+  const day = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return `${day}, ${fmtTime(date, withSeconds)}`;
+};
+
+/**
+ * Re-format an API timestamp like "2026-11-09 20:38:31" to "09 Nov, 8:38:31 PM"
+ * without converting time zones (the value stays in the server's local time).
+ */
+export function fmtServerTs(s: string | undefined): string {
+  if (!has(s)) return "—";
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return String(s);
+  const [, , mo, dd, hh, mi, ss] = m;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const h = Number(hh);
+  const h12 = h % 12 || 12;
+  return `${dd} ${months[Number(mo) - 1] ?? mo}, ${h12}:${mi}${ss ? `:${ss}` : ""} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** Chart axis label. */
+export const fmtClock = (t: number, withSeconds = false) => fmtTime(t, withSeconds);
 
 export const prettyUptime = (s?: string) => String(s || "—").replace(/^up\s+/i, "");
 
