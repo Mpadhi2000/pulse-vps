@@ -1,5 +1,12 @@
-/** Origin of the Pulse API. Override at build time with PULSE_API_URL (see next.config.ts). */
-export const PULSE_API_URL = (process.env.PULSE_API_URL || "https://pulse.mayankpadhi.in").replace(/\/+$/, "");
+/**
+ * Origin of the Pulse API on the VPS. It must NOT be the dashboard's own domain:
+ * pulse.mayankpadhi.in is served by Vercel, so the API lives on its own host.
+ * Override at build time with PULSE_API_URL (Vercel → Project → Environment Variables).
+ */
+export const PULSE_API_URL = (process.env.PULSE_API_URL || "https://pulse-api.mayankpadhi.in").replace(/\/+$/, "");
+
+/** Public name of the dashboard (shown in the header). */
+export const SITE_HOST = "pulse.mayankpadhi.in";
 export const STATUS_ENDPOINT = `${PULSE_API_URL}/api/status`;
 export const HISTORY_ENDPOINT = `${PULSE_API_URL}/api/history`;
 

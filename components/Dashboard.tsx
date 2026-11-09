@@ -1,7 +1,7 @@
 "use client";
 
 import { usePulse } from "@/lib/usePulse";
-import { PULSE_API_URL, REFRESH_INTERVAL_S } from "@/lib/config";
+import { PULSE_API_URL, REFRESH_INTERVAL_S, SITE_HOST, STATUS_ENDPOINT } from "@/lib/config";
 import { degradedReasons, fmtApiTime, fmtTime, relTime } from "@/lib/format";
 import { useServerHistory } from "@/lib/useServerHistory";
 import { Icon } from "./Icons";
@@ -12,7 +12,7 @@ import { ContainersTable } from "./ContainersTable";
 import { LowerPanels } from "./LowerPanels";
 
 const apiHost = (() => {
-  try { return new URL(PULSE_API_URL).hostname; } catch { return "pulse.mayankpadhi.in"; }
+  try { return new URL(PULSE_API_URL).hostname; } catch { return PULSE_API_URL; }
 })();
 
 export function Dashboard() {
@@ -38,7 +38,7 @@ export function Dashboard() {
             Pulse
           </div>
           <span className="slash">/</span>
-          <span className="host">{apiHost}</span>
+          <span className="host">{SITE_HOST}</span>
           <div className="nav-right">
             <span className="pill"><span className={`dot ${status.dot}`} />{status.text}</span>
             <ThemeToggle />
@@ -49,7 +49,7 @@ export function Dashboard() {
       <header className="hero">
         <div className="hero-bg" aria-hidden="true" />
         <div className="container">
-          <span className="eyebrow"><span className={`dot ${status.dot}`} />{apiHost}</span>
+          <span className="eyebrow"><span className={`dot ${status.dot}`} />{SITE_HOST}</span>
           <h1><span className="soft">{status.title}</span></h1>
           <p className="lead">
             Live CPU, memory and disk usage, containers, services and backups for the VPS — refreshed every {REFRESH_INTERVAL_S} seconds.
@@ -71,7 +71,7 @@ export function Dashboard() {
         {offline && (
           <div className="banner" role="alert">
             <Icon name="wifi-off" />
-            <span>Connection lost — can&apos;t reach <code>/api/status</code>. Retrying…</span>
+            <span>Connection lost — can&apos;t reach <code>{STATUS_ENDPOINT.replace(/^https?:\/\//, "")}</code>. Retrying…</span>
             <span className="sub">{lastOk ? `Last good data ${relTime(lastOk)}` : error ?? ""}</span>
           </div>
         )}
