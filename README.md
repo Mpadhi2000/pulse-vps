@@ -35,7 +35,7 @@ npm run build      # static site in ./out
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PULSE_API_URL` | `https://pulse-api.mayankpadhi.in` | Origin of the Pulse API; the app polls `${PULSE_API_URL}/api/status`. Inlined at build time. |
+| `PULSE_API_URL` | `https://pulse-api.mayankpadhi.in,https://pulse.mayankpadhi.in` | Comma-separated API origins, tried in order; the first that returns JSON is used. Inlined at build time. |
 | `NEXT_PUBLIC_BASE_PATH` | `""` | Only if the site is served from a sub-path. Leave unset on Vercel. |
 
 ## Deploy on Vercel
@@ -46,7 +46,7 @@ The project is hosted on Vercel and deploys automatically on every push to `main
 - Framework preset: **Next.js** (auto-detected), build command `npm run build`.
 - The app is a static export (`output: "export"` → `./out`); Vercel serves it as-is.
 - Optional env var in **Project → Settings → Environment Variables**: `PULSE_API_URL`
-  (defaults to `https://pulse-api.mayankpadhi.in`). Leave `NEXT_PUBLIC_BASE_PATH` unset.
+  (defaults to `https://pulse-api.mayankpadhi.in,https://pulse.mayankpadhi.in`). Leave `NEXT_PUBLIC_BASE_PATH` unset.
 
 > `pulse.mayankpadhi.in` points at Vercel, so the API **cannot** live on that host —
 > requests to `pulse.mayankpadhi.in/api/*` hit Vercel and return 404. The VPS API is

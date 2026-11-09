@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PulseStatus } from "./types";
-import { REFRESH_INTERVAL_S, STATUS_ENDPOINT, TIMEOUT_MS } from "./config";
+import { REFRESH_INTERVAL_S } from "./config";
+import { getJson } from "./api";
 import { metric } from "./format";
 import { useHistory } from "./useHistory";
 
@@ -30,16 +31,8 @@ export function usePulse() {
     if (inFlight.current) return;
     inFlight.current = true;
     setLoading(true);
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(STATUS_ENDPOINT, {
-        cache: "no-store",
-        signal: ctrl.signal,
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = (await res.json()) as PulseStatus;
+      const d = await getJson<PulseStatus>("/api/status");
 
       // Highlight containers that appeared since the previous poll (not on first load).
       const names = new Set((d.containers ?? []).map((c) => String(c.name || "unnamed")));
@@ -57,11 +50,9 @@ export function usePulse() {
       setConnection("online");
       setTick((n) => n + 1);
     } catch (e) {
-      const err = e as Error;
-      setError(err.name === "AbortError" ? "Request timed out" : err.message);
+      setError((e as Error).message);
       setConnection("offline");
     } finally {
-      clearTimeout(timer);
       inFlight.current = false;
       setLoading(false);
       setCountdown(REFRESH_INTERVAL_S);

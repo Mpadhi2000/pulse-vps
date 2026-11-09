@@ -12,7 +12,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   env: {
     // Origin of the Pulse API, inlined at build time.
-    PULSE_API_URL: process.env.PULSE_API_URL || "https://pulse-api.mayankpadhi.in",
+    // Comma-separated list of API origins, tried in order (see lib/config.ts).
+    PULSE_API_URL: process.env.PULSE_API_URL || "https://pulse-api.mayankpadhi.in,https://pulse.mayankpadhi.in",
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
 };

@@ -1,7 +1,8 @@
 "use client";
 
 import { usePulse } from "@/lib/usePulse";
-import { PULSE_API_URL, REFRESH_INTERVAL_S, SITE_HOST, STATUS_ENDPOINT } from "@/lib/config";
+import { REFRESH_INTERVAL_S, SITE_HOST } from "@/lib/config";
+import { activeHost } from "@/lib/api";
 import { degradedReasons, fmtApiTime, fmtTime, relTime } from "@/lib/format";
 import { useServerHistory } from "@/lib/useServerHistory";
 import { Icon } from "./Icons";
@@ -11,9 +12,7 @@ import { UsageChart } from "./UsageChart";
 import { ContainersTable } from "./ContainersTable";
 import { LowerPanels } from "./LowerPanels";
 
-const apiHost = (() => {
-  try { return new URL(PULSE_API_URL).hostname; } catch { return PULSE_API_URL; }
-})();
+
 
 export function Dashboard() {
   const { data, connection, error, lastOk, countdown, loading, newNames, refresh, tick, localSamples, clearLocalHistory } = usePulse();
@@ -71,7 +70,7 @@ export function Dashboard() {
         {offline && (
           <div className="banner" role="alert">
             <Icon name="wifi-off" />
-            <span>Connection lost — can&apos;t reach <code>{STATUS_ENDPOINT.replace(/^https?:\/\//, "")}</code>. Retrying…</span>
+            <span>Connection lost — can&apos;t reach <code>{activeHost()}/api/status</code>. Retrying…</span>
             <span className="sub">{lastOk ? `Last good data ${relTime(lastOk)}` : error ?? ""}</span>
           </div>
         )}
@@ -115,7 +114,7 @@ export function Dashboard() {
         <div className="container footer-inner">
           <span><Icon name="pulse" size={14} /> <b>Pulse</b> · VPS status</span>
           <span>Server time <b>{data ? fmtApiTime(data.time_iso, data.time, true) : "—"}</b></span>
-          <span>API <b className="mono">{apiHost}/api/status</b></span>
+          <span>API <b className="mono">{activeHost()}/api/status</b></span>
         </div>
       </footer>
     </div>

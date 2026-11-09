@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { HistoryRange, HistoryResponse, Sample } from "./types";
-import { HISTORY_ENDPOINT, TIMEOUT_MS } from "./config";
+import { getJson } from "./api";
 
 export type HistorySource = "server" | "local";
 
@@ -20,17 +20,9 @@ function fetchHistory(range: HistoryRange, tick: number): Promise<Parsed> {
   const key = `${range}:${tick}`;
   const hit = inflight.get(key);
   if (hit) return hit;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   const p = (async () => {
     try {
-      const res = await fetch(`${HISTORY_ENDPOINT}?range=${range}`, {
-        cache: "no-store",
-        signal: ctrl.signal,
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const body = (await res.json()) as HistoryResponse;
+      const body = await getJson<HistoryResponse>(`/api/history?range=${range}`);
       if (!Array.isArray(body.samples)) throw new Error("Malformed history response");
       const samples: Sample[] = body.samples
         .map((s) => ({ t: Date.parse(s.t), cpu: toNum(s.cpu), ram: toNum(s.ram), disk: toNum(s.disk) }))
@@ -38,7 +30,6 @@ function fetchHistory(range: HistoryRange, tick: number): Promise<Parsed> {
         .sort((a, b) => a.t - b.t);
       return { samples, intervalS: typeof body.interval_s === "number" && body.interval_s > 0 ? body.interval_s : null };
     } finally {
-      clearTimeout(timer);
       // Keep the entry briefly so a sibling effect in the same render pass can reuse it.
       setTimeout(() => inflight.delete(key), 1000);
     }

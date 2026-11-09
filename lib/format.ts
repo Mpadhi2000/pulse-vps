@@ -145,8 +145,11 @@ export function statusAgeMs(d: PulseStatus, now = Date.now()): number | null {
   return Number.isNaN(t) ? null : now - t;
 }
 
-/** A snapshot older than this means the server stopped refreshing /api/status. */
-export const STALE_STATUS_MS = 2 * 60 * 1000;
+/**
+ * The VPS regenerates /api/status every 5 minutes, so a snapshot is normally 0–5 min old.
+ * Only flag it once two refreshes have been missed (plus margin) — i.e. it has really stopped.
+ */
+export const STALE_STATUS_MS = 12 * 60 * 1000;
 
 /** Degraded per API contract: failed services, error alerts, nginx down, stopped containers, or stale data. */
 export function degradedReasons(d: PulseStatus, now = Date.now()): string[] {

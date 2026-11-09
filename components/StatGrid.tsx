@@ -34,9 +34,13 @@ export function StatGrid({ d, samples }: { d: PulseStatus | null; samples: Sampl
   const test = s.nginx_config_test;
   const testOk = has(test) && /ok|success|pass|true/i.test(String(test));
 
-  const cpu = metric(s, "cpu", s.cpu);
-  const ram = metric(s, "ram_pct", s.ram_pct);
-  const disk = metric(s, "disk_pct", s.disk_pct);
+  // /api/status is refreshed every few minutes, /api/history every 15s — show whichever is newer.
+  const statusT = has(s.time_iso) ? Date.parse(String(s.time_iso)) : NaN;
+  const latest = samples.length ? samples[samples.length - 1] : null;
+  const live = latest && (Number.isNaN(statusT) || latest.t > statusT) ? latest : null;
+  const cpu = live?.cpu ?? metric(s, "cpu", s.cpu);
+  const ram = live?.ram ?? metric(s, "ram_pct", s.ram_pct);
+  const disk = live?.disk ?? metric(s, "disk_pct", s.disk_pct);
   const cores = metric(s, "cpu_cores", s.cpu_cores);
   const load = loadAvg(s);
   const ramUsed = metric(s, "ram_used_gb", s.ram_used_gb);
