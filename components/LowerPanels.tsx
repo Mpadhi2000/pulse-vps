@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Alert, PulseStatus } from "@/lib/types";
-import { failedServiceList, fmtApiTime, fmtDate, has, parseBackupTs, relTime } from "@/lib/format";
+import { failedServiceList, fmtApiTime, fmtDate, has, parseBackupTs, relTime, to12hText } from "@/lib/format";
 import { Badge, type Tone } from "./Badge";
 import { Icon, type IconName } from "./Icons";
 
@@ -53,7 +53,7 @@ function Alerts({ alerts }: { alerts: Alert[] | undefined }) {
           <li key={i}>
             <span className={`ico ${cls}`}><Icon name={ic} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="t">{a.message || "Alert"}</div>
+              <div className="t">{to12hText(a.message || "Alert")}</div>
               <div className="s">{fmtApiTime(a.time_iso, a.time)}</div>
             </div>
             <Badge tone={tone}>{lvl}</Badge>
@@ -76,7 +76,7 @@ function Backup({ d, ts, ageH }: { d: PulseStatus; ts: Date | null; ageH: number
   const upload = d.backup_upload;
   const uploadOk = has(upload) && /ok|success|complete|uploaded|true/i.test(String(upload));
   const rows: [string, ReactNode, string?][] = [
-    ["Last backup", ts ? fmtDate(ts) : d.last_backup || "—"],
+    ["Last backup", ts ? fmtDate(ts) : d.last_backup ? to12hText(d.last_backup) : "—"],
     ["Age", ts ? <span className={ageH! > 26 ? "c-warn" : "c-ok"}>{relTime(ts)}</span> : "—"],
     ["Archive size", has(d.backup_size) ? d.backup_size : "—"],
     ["Upload", has(upload) ? <span className={uploadOk ? "c-ok" : "c-crit"}>{uploadOk ? "uploaded" : upload}</span> : "—"],

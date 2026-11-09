@@ -58,12 +58,27 @@ export const fmtDate = (d: Date | number, withSeconds = false) => {
 export function fmtServerTs(s: string | undefined): string {
   if (!has(s)) return "—";
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!m) return String(s);
+  if (!m) {
+    const d = new Date(String(s));
+    return Number.isNaN(d.getTime()) ? to12hText(String(s)) : fmtDate(d, true);
+  }
   const [, , mo, dd, hh, mi, ss] = m;
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const h = Number(hh);
   const h12 = h % 12 || 12;
   return `${dd} ${months[Number(mo) - 1] ?? mo}, ${h12}:${mi}${ss ? `:${ss}` : ""} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/**
+ * Last-resort guard: rewrite any 24-hour clock time inside free text ("15:28", "04:13:09")
+ * to 12-hour ("3:28 PM", "4:13:09 AM"). Times already followed by AM/PM are left alone.
+ */
+export function to12hText(text: string): string {
+  return text.replace(/(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?:\.\d+)?(?![\d:])(?!\s?(?:AM|PM|am|pm))/g,
+    (_m, hh: string, mi: string, ss?: string) => {
+      const h = Number(hh);
+      return `${h % 12 || 12}:${mi}${ss ? `:${ss}` : ""} ${h < 12 ? "AM" : "PM"}`;
+    });
 }
 
 /** Chart axis label. */
