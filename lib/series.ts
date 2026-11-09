@@ -74,3 +74,10 @@ export function stats(samples: Sample[], key: MetricKey) {
     min: Math.min(...vals),
   };
 }
+
+/** Median time between consecutive samples (ms) — used to tell real gaps from normal spacing. */
+export function medianStep(samples: { t: number }[]): number {
+  if (samples.length < 2) return 0;
+  const d = samples.slice(1).map((s, i) => s.t - samples[i].t).sort((a, b) => a - b);
+  return d[Math.floor(d.length / 2)];
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Alert, PulseStatus } from "@/lib/types";
-import { failedServiceList, fmtDate, has, parseBackupTs, relTime } from "@/lib/format";
+import { failedServiceList, fmtApiTime, fmtDate, has, parseBackupTs, relTime } from "@/lib/format";
 import { Badge, type Tone } from "./Badge";
 import { Icon, type IconName } from "./Icons";
 
@@ -18,8 +18,8 @@ const Ok = ({ children }: { children: ReactNode }) => (
 );
 const Muted = ({ children }: { children: ReactNode }) => <div className="state muted">{children}</div>;
 
-function Services({ fs }: { fs: string }) {
-  const items = failedServiceList(fs);
+function Services({ d }: { d: PulseStatus }) {
+  const items = failedServiceList(d);
   if (!items.length) return <Ok>All services running</Ok>;
   return (
     <ul className="list">
@@ -49,13 +49,12 @@ function Alerts({ alerts }: { alerts: Alert[] | undefined }) {
       {alerts.slice(0, 5).map((a, i) => {
         const lvl = String(a.level || "info").toLowerCase();
         const [tone, cls, ic] = ALERT_STYLE[lvl] || ALERT_STYLE.info;
-        const when = new Date(a.time);
         return (
           <li key={i}>
             <span className={`ico ${cls}`}><Icon name={ic} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="t">{a.message || "Alert"}</div>
-              <div className="s">{Number.isNaN(when.getTime()) ? a.time : fmtDate(when)}</div>
+              <div className="s">{fmtApiTime(a.time_iso, a.time)}</div>
             </div>
             <Badge tone={tone}>{lvl}</Badge>
           </li>
@@ -98,7 +97,7 @@ export function LowerPanels({ d }: { d: PulseStatus | null }) {
   return (
     <div className="lower">
       <Panel icon="alert" title="Systemd services">
-        {d ? <Services fs={d.failed_services} /> : <Muted>Loading…</Muted>}
+        {d ? <Services d={d} /> : <Muted>Loading…</Muted>}
       </Panel>
       <Panel icon="bell" title="Recent alerts" right="last 5">
         {d ? <Alerts alerts={d.alerts} /> : <Muted>Loading…</Muted>}

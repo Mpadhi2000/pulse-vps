@@ -4,18 +4,24 @@ Live status dashboard for the `pulse.mayankpadhi.in` VPS, built with **Next.js (
 Monochrome black/white theme inspired by nextjs.org (Geist font, hairline grid, light/dark/system toggle).
 
 - **Overview** — CPU, memory, disk (with 30-min sparklines), uptime, nginx, container count
-- **Usage graph** — CPU / memory / disk over 15m · 1h · 6h · 24h, hover tooltips, current/avg/peak
+- **Usage graph** — CPU / memory / disk over 15m · 1h · 6h · 24h · 7d from `/api/history`, hover tooltips, current/avg/peak
 - **Workloads** — Docker containers with up/health state and image tag
 - **Health** — failed systemd services, recent alerts, backup status
-- Status pill shows *Operational*, *Degraded* (failed services, `error` alerts, nginx down, stopped containers) or *Offline*
-
-The API only returns the current reading, so usage **history is collected in the browser**
-every 15 s and kept in `localStorage` for up to 24 h.
+- Status pill shows *Operational*, *Degraded* (failed services, `error` alerts, nginx down, stopped
+  containers, or a status snapshot older than 2 min) or *Offline*
+- Times are shown in 12-hour format in the viewer's local time zone
 
 ## API
 
-`GET https://pulse.mayankpadhi.in/api/status` — no auth, CORS `*`, JSON. All scalars are strings.
-Types live in [`lib/types.ts`](lib/types.ts).
+No auth, CORS `*`, `Cache-Control: no-store`. Types live in [`lib/types.ts`](lib/types.ts).
+
+| Endpoint | Used for |
+| --- | --- |
+| `GET /api/status` | Current snapshot. The app prefers the v2 fields (`metrics`, `*_iso` timestamps, `failed_services_list`, ISO `last_backup`) and falls back to the legacy string fields. |
+| `GET /api/history?range=15m\|1h\|6h\|24h\|7d` | Usage graph and sparklines (server samples every 15 s, ≤ ~600 points per response). |
+
+If `/api/history` is unreachable the app falls back to samples collected in the browser
+(`localStorage`, up to 24 h).
 
 ## Develop
 

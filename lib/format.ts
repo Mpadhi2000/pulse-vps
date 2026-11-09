@@ -1,4 +1,4 @@
-import type { PulseStatus } from "./types";
+import type { Metrics, PulseStatus } from "./types";
 
 /** Parse the API's string scalars ("11.5", "30G", "8") into numbers. */
 export const num = (v: unknown): number | null => {
@@ -22,9 +22,14 @@ export function relTime(date: Date | null): string | null {
   return `${Math.floor(h / 24)}d ${h % 24}h ago`;
 }
 
-/** Accepts "2026-11-08_2219IST", "2026-11-08 22:19:00" or any ISO string. */
+/** Accepts ISO 8601 with zone, "2026-11-08_2219IST", "2026-11-08 22:19:00" or any Date-parsable string. */
 export function parseBackupTs(s: string | undefined): Date | null {
   if (!has(s)) return null;
+  // ISO 8601 with an explicit zone (API v2, e.g. "2026-11-09T11:37:53Z") — parse as-is.
+  if (/T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i.test(String(s).trim())) {
+    const iso = new Date(String(s).trim());
+    return Number.isNaN(iso.getTime()) ? null : iso;
+  }
   const m = String(s).match(/^(\d{4}-\d{2}-\d{2})[_ T](\d{2}):?(\d{2})(?::?(\d{2}))?\s*(IST)?/i);
   const d = m
     ? new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4] || "00"}${m[5] ? "+05:30" : ""}`)
@@ -85,20 +90,60 @@ export function containerState(statusRaw?: string, healthRaw?: string) {
 export type Level = "ok" | "warn" | "crit";
 export const usageLevel = (p: number | null): Level => (p === null ? "ok" : p >= 90 ? "crit" : p >= 70 ? "warn" : "ok");
 
-export const servicesFailed = (fs: string | undefined) =>
-  has(fs) && !/^(none|0|ok|\[\])$/i.test(String(fs).trim());
+/** Failed systemd units — prefers `failed_services_list` (v2), falls back to the "None"/CSV string. */
+export function failedServiceList(d: Pick<PulseStatus, "failed_services" | "failed_services_list">): string[] {
+  if (Array.isArray(d.failed_services_list)) return d.failed_services_list.filter(Boolean);
+  const fs = d.failed_services;
+  if (!has(fs) || /^(none|0|ok|\[\])$/i.test(String(fs).trim())) return [];
+  return String(fs).split(/[,\n]+/).map((x) => x.trim()).filter(Boolean);
+}
 
-export const failedServiceList = (fs: string | undefined) =>
-  servicesFailed(fs) ? String(fs).split(/[,\n]+/).map((s) => s.trim()).filter(Boolean) : [];
+/** Numeric metric — prefers the typed `metrics` object (v2), falls back to the legacy string field. */
+export function metric(d: Partial<PulseStatus> | null, key: Exclude<keyof Metrics, "load_avg">, legacy?: unknown): number | null {
+  const v = d?.metrics?.[key];
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return num(legacy);
+}
 
-/** Degraded per API contract: failed services, error alerts, nginx down, or stopped containers. */
-export function degradedReasons(d: PulseStatus): string[] {
+export function loadAvg(d: Partial<PulseStatus> | null): string | null {
+  const la = d?.metrics?.load_avg;
+  if (Array.isArray(la) && la.length) return la.map((n) => n.toFixed(2)).join(", ");
+  return has(d?.load_avg) ? String(d!.load_avg) : null;
+}
+
+/**
+ * Timestamp from the API in the viewer's local time zone. Uses the ISO (UTC) field when
+ * present; otherwise re-formats the legacy server-local string without converting.
+ */
+export function fmtApiTime(iso: string | undefined, legacy: string | undefined, withSeconds = false): string {
+  if (has(iso)) {
+    const d = new Date(String(iso));
+    if (!Number.isNaN(d.getTime())) return fmtDate(d, withSeconds);
+  }
+  return fmtServerTs(legacy);
+}
+
+/** How old the status snapshot is (ms), from `time_iso`; null when the API doesn't send it. */
+export function statusAgeMs(d: PulseStatus, now = Date.now()): number | null {
+  if (!has(d.time_iso)) return null;
+  const t = Date.parse(String(d.time_iso));
+  return Number.isNaN(t) ? null : now - t;
+}
+
+/** A snapshot older than this means the server stopped refreshing /api/status. */
+export const STALE_STATUS_MS = 2 * 60 * 1000;
+
+/** Degraded per API contract: failed services, error alerts, nginx down, stopped containers, or stale data. */
+export function degradedReasons(d: PulseStatus, now = Date.now()): string[] {
   const out: string[] = [];
-  if (servicesFailed(d.failed_services)) out.push("failed systemd services");
+  const age = statusAgeMs(d, now);
+  if (age !== null && age > STALE_STATUS_MS) out.push(`status data is ${relTime(new Date(now - age))?.replace(" ago", "")} old`);
+  const failed = failedServiceList(d);
+  if (failed.length) out.push(`${failed.length} failed service${failed.length > 1 ? "s" : ""}`);
   if ((d.alerts ?? []).some((a) => String(a.level).toLowerCase() === "error")) out.push("error alerts");
   const ngx = String(d.nginx || "").toLowerCase();
   if (has(ngx) && ngx !== "active" && ngx !== "running") out.push("nginx down");
-  const run = num(d.running_count), tot = num(d.total_count);
+  const run = metric(d, "running_count", d.running_count), tot = metric(d, "total_count", d.total_count);
   if (run !== null && tot !== null && run < tot) out.push(`${tot - run} container${tot - run > 1 ? "s" : ""} stopped`);
   return out;
 }

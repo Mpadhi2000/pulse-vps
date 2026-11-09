@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { PulseStatus, Sample } from "@/lib/types";
-import { fmtPct, fmtServerTs, has, num, prettyUptime, usageLevel, withUnit } from "@/lib/format";
+import { fmtApiTime, fmtPct, has, loadAvg, metric, prettyUptime, usageLevel, withUnit } from "@/lib/format";
 import { Badge } from "./Badge";
 import { Icon, type IconName } from "./Icons";
 import { Sparkline } from "./Sparkline";
@@ -20,9 +20,8 @@ function Bar({ pct, level }: { pct: number | null; level?: string }) {
   return <div className="bar"><span className={lv === "ok" ? "" : lv} style={{ width: `${p}%` }} /></div>;
 }
 
-function Pct({ value, loading }: { value: string | undefined; loading: boolean }) {
+function Pct({ value: n, loading }: { value: number | null; loading: boolean }) {
   if (loading) return <span className="skeleton">00.0%</span>;
-  const n = num(value);
   return n === null ? <>—</> : <>{fmtPct(n)}<small>%</small></>;
 }
 
@@ -35,35 +34,47 @@ export function StatGrid({ d, samples }: { d: PulseStatus | null; samples: Sampl
   const test = s.nginx_config_test;
   const testOk = has(test) && /ok|success|pass|true/i.test(String(test));
 
-  const run = num(s.running_count) ?? 0;
-  const tot = num(s.total_count) ?? 0;
+  const cpu = metric(s, "cpu", s.cpu);
+  const ram = metric(s, "ram_pct", s.ram_pct);
+  const disk = metric(s, "disk_pct", s.disk_pct);
+  const cores = metric(s, "cpu_cores", s.cpu_cores);
+  const load = loadAvg(s);
+  const ramUsed = metric(s, "ram_used_gb", s.ram_used_gb);
+  const ramTotal = metric(s, "ram_total_gb", s.ram_total_gb);
+  const diskUsed = s.metrics?.disk_used_gb;
+  const diskTotal = s.metrics?.disk_total_gb;
+  const diskText = typeof diskUsed === "number" && typeof diskTotal === "number"
+    ? [`${diskUsed} GB`, `${diskTotal} GB`]
+    : has(s.disk_used) ? [withUnit(s.disk_used), withUnit(s.disk_total)] : null;
+  const run = metric(s, "running_count", s.running_count) ?? 0;
+  const tot = metric(s, "total_count", s.total_count) ?? 0;
 
   return (
     <div className="cells cells-3" aria-label="System metrics">
-      <Cell icon="cpu" title="CPU" right={has(s.cpu_cores) ? `${s.cpu_cores} cores` : undefined}>
-        <div className="big"><Pct value={s.cpu} loading={loading} /></div>
-        <div className="meta">{has(s.load_avg) ? <span>Load <b>{s.load_avg}</b></span> : <span>—</span>}</div>
-        <Bar pct={num(s.cpu)} />
+      <Cell icon="cpu" title="CPU" right={cores !== null ? `${cores} cores` : undefined}>
+        <div className="big"><Pct value={cpu} loading={loading} /></div>
+        <div className="meta">{load ? <span>Load <b>{load}</b></span> : <span>—</span>}</div>
+        <Bar pct={cpu} />
         <Sparkline samples={samples} metric="cpu" color="var(--s-cpu)" />
       </Cell>
 
       <Cell icon="ram" title="Memory">
-        <div className="big"><Pct value={s.ram_pct} loading={loading} /></div>
-        <div className="meta">{has(s.ram_used_gb) ? <span><b>{s.ram_used_gb} GB</b> of {s.ram_total_gb} GB</span> : <span>—</span>}</div>
-        <Bar pct={num(s.ram_pct)} />
+        <div className="big"><Pct value={ram} loading={loading} /></div>
+        <div className="meta">{ramUsed !== null ? <span><b>{ramUsed} GB</b> of {ramTotal ?? "—"} GB</span> : <span>—</span>}</div>
+        <Bar pct={ram} />
         <Sparkline samples={samples} metric="ram" color="var(--s-ram)" />
       </Cell>
 
       <Cell icon="disk" title="Disk">
-        <div className="big"><Pct value={s.disk_pct} loading={loading} /></div>
-        <div className="meta">{has(s.disk_used) ? <span><b>{withUnit(s.disk_used)}</b> of {withUnit(s.disk_total)}</span> : <span>—</span>}</div>
-        <Bar pct={num(s.disk_pct)} />
+        <div className="big"><Pct value={disk} loading={loading} /></div>
+        <div className="meta">{diskText ? <span><b>{diskText[0]}</b> of {diskText[1]}</span> : <span>—</span>}</div>
+        <Bar pct={disk} />
         <Sparkline samples={samples} metric="disk" color="var(--s-disk)" />
       </Cell>
 
       <Cell icon="clock" title="Uptime">
         <div className="big md">{loading ? <span className="skeleton">0 days, 0h</span> : prettyUptime(s.uptime)}</div>
-        <div className="meta">{has(s.boot_time) ? <span>Booted <b>{fmtServerTs(s.boot_time)}</b></span> : <span>—</span>}</div>
+        <div className="meta">{has(s.boot_time_iso) || has(s.boot_time) ? <span>Booted <b>{fmtApiTime(s.boot_time_iso, s.boot_time)}</b></span> : <span>—</span>}</div>
       </Cell>
 
       <Cell icon="globe" title="Nginx">

@@ -2,7 +2,8 @@
 
 import { usePulse } from "@/lib/usePulse";
 import { PULSE_API_URL, REFRESH_INTERVAL_S } from "@/lib/config";
-import { degradedReasons, fmtServerTs, fmtTime, relTime } from "@/lib/format";
+import { degradedReasons, fmtApiTime, fmtTime, relTime } from "@/lib/format";
+import { useServerHistory } from "@/lib/useServerHistory";
 import { Icon } from "./Icons";
 import { ThemeToggle } from "./ThemeToggle";
 import { StatGrid } from "./StatGrid";
@@ -15,7 +16,10 @@ const apiHost = (() => {
 })();
 
 export function Dashboard() {
-  const { data, connection, error, lastOk, countdown, loading, newNames, refresh, samples, clearHistory } = usePulse();
+  const { data, connection, error, lastOk, countdown, loading, newNames, refresh, tick, localSamples, clearLocalHistory } = usePulse();
+  // Sparklines: last hour from the server, falling back to browser-collected samples.
+  const spark = useServerHistory("1h", tick);
+  const sparkSamples = spark.ok === false ? localSamples : spark.samples ?? [];
   const reasons = data ? degradedReasons(data) : [];
   const offline = connection === "offline";
 
@@ -82,14 +86,14 @@ export function Dashboard() {
           <div className="section-head">
             <div><h2>Overview</h2><p>Current readings from the server.</p></div>
           </div>
-          <StatGrid d={data} samples={samples} />
+          <StatGrid d={data} samples={sparkSamples} />
         </section>
 
         <section className="section" id="usage" style={{ scrollMarginTop: 80 }}>
           <div className="section-head">
             <div><h2>Usage</h2><p>CPU, memory and disk over time.</p></div>
           </div>
-          <UsageChart samples={samples} onClear={clearHistory} />
+          <UsageChart tick={tick} localSamples={localSamples} onClearLocal={clearLocalHistory} />
         </section>
 
         <section className="section">
@@ -110,7 +114,7 @@ export function Dashboard() {
       <footer className="footer">
         <div className="container footer-inner">
           <span><Icon name="pulse" size={14} /> <b>Pulse</b> · VPS status</span>
-          <span>Server time <b>{fmtServerTs(data?.time)}</b></span>
+          <span>Server time <b>{data ? fmtApiTime(data.time_iso, data.time, true) : "—"}</b></span>
           <span>API <b className="mono">{apiHost}/api/status</b></span>
         </div>
       </footer>

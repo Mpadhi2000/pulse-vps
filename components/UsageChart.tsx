@@ -1,22 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
-import type { MetricKey, Sample } from "@/lib/types";
-import { bucketize, inRange, METRICS, segments, stats } from "@/lib/series";
+import type { HistoryRange, MetricKey, Sample } from "@/lib/types";
+import { bucketize, inRange, medianStep, METRICS, segments, stats } from "@/lib/series";
 import { fmtClock, fmtDate, fmtPct } from "@/lib/format";
-import { REFRESH_INTERVAL_S } from "@/lib/config";
+import { HISTORY_MAX_MS } from "@/lib/config";
+import { useServerHistory } from "@/lib/useServerHistory";
 import { Icon } from "./Icons";
 
-const RANGES = [
+const RANGES: { label: HistoryRange; ms: number }[] = [
   { label: "15m", ms: 15 * 60e3 },
   { label: "1h", ms: 60 * 60e3 },
   { label: "6h", ms: 6 * 60 * 60e3 },
   { label: "24h", ms: 24 * 60 * 60e3 },
-] as const;
+  { label: "7d", ms: 7 * 24 * 60 * 60e3 },
+];
 
 type View = "all" | MetricKey;
 const PAD = { l: 40, r: 8, t: 8, b: 24 };
 const Y_TICKS = [0, 25, 50, 75, 100];
+
+const fmtStep = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m}m` : `${Math.round(m / 60)}h`;
+};
 
 function useSize<T extends HTMLElement>() {
   const ref = useRef<T>(null);
@@ -34,12 +43,21 @@ function useSize<T extends HTMLElement>() {
   return [ref, size] as const;
 }
 
-export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: () => void }) {
+export function UsageChart({
+  tick, localSamples, onClearLocal,
+}: { tick: number; localSamples: Sample[]; onClearLocal: () => void }) {
   const [view, setView] = useState<View>("all");
   const [rangeIdx, setRangeIdx] = useState(1);
   const [hover, setHover] = useState<number | null>(null);
   const [svgRef, { w, h }] = useSize<HTMLDivElement>();
   const range = RANGES[rangeIdx];
+
+  // Server history is the source of truth; browser-collected samples are a fallback.
+  const server = useServerHistory(range.label, tick);
+  const usingLocal = server.ok === false;
+  const loadingServer = !usingLocal && server.samples === null;
+  const samples = usingLocal ? localSamples : server.samples ?? [];
+  const intervalS = usingLocal ? 15 : server.intervalS;
 
   const end = samples.length ? samples[samples.length - 1].t : 0;
   const visible = useMemo(() => inRange(samples, range.ms, end), [samples, range.ms, end]);
@@ -48,7 +66,8 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
   const plotW = Math.max(w - PAD.l - PAD.r, 10);
   const plotH = Math.max(h - PAD.t - PAD.b, 10);
   const { points, bucketMs } = useMemo(() => bucketize(visible, Math.floor(plotW / 3)), [visible, plotW]);
-  const gapMs = Math.max(REFRESH_INTERVAL_S * 3 * 1000, bucketMs * 2.5);
+  const step = useMemo(() => medianStep(visible), [visible]);
+  const gapMs = Math.max(intervalS * 3 * 1000, step * 3, bucketMs * 2.5);
 
   const t0 = points.length ? points[0].t : 0;
   const t1 = points.length ? points[points.length - 1].t : 1;
@@ -63,6 +82,8 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
     return Array.from({ length: n }, (_, i) => t0 + (span * i) / (n - 1));
   }, [enough, plotW, t0, span]);
   const withSeconds = span < 10 * 60e3;
+  const fmtTick = (t: number) =>
+    span > 36 * 3600e3 ? new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : fmtClock(t, withSeconds);
 
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     if (!enough) return;
@@ -78,6 +99,7 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
 
   const hp = hover !== null && enough ? points[Math.min(hover, points.length - 1)] : null;
   const firstT = samples.length ? samples[0].t : null;
+  const coversRange = firstT !== null && end - firstT >= range.ms * 0.9;
 
   return (
     <section className="panel" aria-label="Resource usage over time">
@@ -121,7 +143,7 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
           ))}
         </div>
         <span style={{ color: "var(--dim)", fontSize: 12 }}>
-          {visible.length} samples · every {REFRESH_INTERVAL_S}s
+          {loadingServer ? "Loading…" : `${visible.length} samples${step ? ` · every ${fmtStep(step)}` : ""}`}
         </span>
       </div>
 
@@ -152,7 +174,7 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
           {xTicks.map((t, i) => (
             <text key={i} className="tick" x={x(t)} y={h - 6}
               textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}>
-              {fmtClock(t, withSeconds)}
+              {fmtTick(t)}
             </text>
           ))}
 
@@ -186,8 +208,14 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
         {!enough && (
           <div className="chart-empty">
             <div>
-              <b>Collecting data…</b>
-              The API reports current values only — history builds up in this browser every {REFRESH_INTERVAL_S}s.
+              {loadingServer ? <b>Loading history…</b> : (
+                <>
+                  <b>Collecting data…</b>
+                  {usingLocal
+                    ? "History API unreachable — collecting samples in this browser instead."
+                    : `The server records a sample every ${intervalS}s; the graph fills in as data arrives.`}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -207,10 +235,17 @@ export function UsageChart({ samples, onClear }: { samples: Sample[]; onClear: (
       </div>
 
       <div className="chart-foot">
-        <span>
-          History is stored in this browser{firstT ? ` since ${fmtDate(firstT)}` : ""} (up to 24h).
-        </span>
-        {samples.length > 0 && <button type="button" className="link-btn" onClick={onClear}>Clear history</button>}
+        {usingLocal ? (
+          <>
+            <span>History API unreachable — showing samples collected in this browser (up to {HISTORY_MAX_MS / 3600e3}h).</span>
+            {samples.length > 0 && <button type="button" className="link-btn" onClick={onClearLocal}>Clear local history</button>}
+          </>
+        ) : (
+          <span>
+            Recorded on the server every {intervalS}s
+            {firstT !== null && !coversRange ? ` · history available since ${fmtDate(firstT)}` : ""}
+          </span>
+        )}
       </div>
     </section>
   );

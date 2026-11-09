@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PulseStatus } from "./types";
 import { REFRESH_INTERVAL_S, STATUS_ENDPOINT, TIMEOUT_MS } from "./config";
-import { num } from "./format";
+import { metric } from "./format";
 import { useHistory } from "./useHistory";
 
 export type Connection = "connecting" | "online" | "offline";
@@ -17,6 +17,8 @@ export function usePulse() {
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL_S);
   const [loading, setLoading] = useState(false);
   const [newNames, setNewNames] = useState<Set<string>>(new Set());
+  /** Increments after every successful poll — lets dependent fetches (history) follow along. */
+  const [tick, setTick] = useState(0);
   const history = useHistory();
   const { push } = history;
 
@@ -47,11 +49,13 @@ export function usePulse() {
 
       const now = new Date();
       lastOkRef.current = now;
-      push({ t: now.getTime(), cpu: num(d.cpu), ram: num(d.ram_pct), disk: num(d.disk_pct) });
+      // Local copy is only a fallback for when /api/history is unavailable.
+      push({ t: now.getTime(), cpu: metric(d, "cpu", d.cpu), ram: metric(d, "ram_pct", d.ram_pct), disk: metric(d, "disk_pct", d.disk_pct) });
       setData(d);
       setLastOk(now);
       setError(null);
       setConnection("online");
+      setTick((n) => n + 1);
     } catch (e) {
       const err = e as Error;
       setError(err.name === "AbortError" ? "Request timed out" : err.message);
@@ -85,7 +89,7 @@ export function usePulse() {
   }, [refresh]);
 
   return {
-    data, connection, error, lastOk, countdown, loading, newNames, refresh,
-    samples: history.samples, clearHistory: history.clear,
+    data, connection, error, lastOk, countdown, loading, newNames, refresh, tick,
+    localSamples: history.samples, clearLocalHistory: history.clear,
   };
 }
