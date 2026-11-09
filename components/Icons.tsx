@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 
 export type IconName =
   | "pulse" | "cpu" | "ram" | "disk" | "clock" | "globe" | "box" | "alert"
-  | "bell" | "archive" | "check" | "wifi-off" | "refresh" | "x" | "info";
+  | "bell" | "archive" | "check" | "wifi-off" | "refresh" | "x" | "info"
+  | "sun" | "moon" | "monitor" | "chart";
 
 /** Inline SVG sprite — rendered once in the root layout. */
 export function IconSprite() {
@@ -23,6 +24,10 @@ export function IconSprite() {
         <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="m2 2 20 20M8.5 16.5a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5.2-2.8M19 12.9a10 10 0 0 0-2.3-1.6M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 10.7 5M12 20h.01" /></symbol>
         <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8" /><path d="M21 3v5h-5" /></symbol>
         <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m15 9-6 6M9 9l6 6" /></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></symbol>
+        <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" /></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18" /><path d="m7 15 4-4 3 3 6-6" /></symbol>
         <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></symbol>
       </defs>
     </svg>
@@ -34,14 +39,5 @@ export function Icon({ name, size, style }: { name: IconName; size?: number; sty
     <svg className="i" style={size ? { width: size, height: size, ...style } : style} aria-hidden="true">
       <use href={`#i-${name}`} />
     </svg>
-  );
-}
-
-/** Rounded tinted icon tile. `color` is any CSS colour / var(). */
-export function IconTile({ name, color }: { name: IconName; color?: string }) {
-  return (
-    <div className="ic" style={color ? ({ "--c": color } as CSSProperties) : undefined}>
-      <Icon name={name} />
-    </div>
   );
 }

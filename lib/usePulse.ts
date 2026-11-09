@@ -1,20 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { StatusResponse } from "./types";
-import { API_URL, REFRESH_INTERVAL_S, TIMEOUT_MS } from "./config";
+import type { PulseStatus } from "./types";
+import { REFRESH_INTERVAL_S, STATUS_ENDPOINT, TIMEOUT_MS } from "./config";
+import { num } from "./format";
+import { useHistory } from "./useHistory";
 
-export type LiveState = "wait" | "live" | "down";
+export type Connection = "connecting" | "online" | "offline";
 
-/** Polls the status API every REFRESH_INTERVAL_S seconds, with timeout, countdown and manual refresh. */
+/** Polls the status API, records usage history, exposes countdown + manual refresh. */
 export function usePulse() {
-  const [data, setData] = useState<StatusResponse | null>(null);
-  const [state, setState] = useState<LiveState>("wait");
+  const [data, setData] = useState<PulseStatus | null>(null);
+  const [connection, setConnection] = useState<Connection>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [lastOk, setLastOk] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL_S);
   const [loading, setLoading] = useState(false);
   const [newNames, setNewNames] = useState<Set<string>>(new Set());
+  const history = useHistory();
+  const { push } = history;
 
   const known = useRef<Set<string> | null>(null);
   const inFlight = useRef(false);
@@ -25,15 +29,15 @@ export function usePulse() {
     inFlight.current = true;
     setLoading(true);
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch(STATUS_ENDPOINT, {
         cache: "no-store",
         signal: ctrl.signal,
         headers: { Accept: "application/json" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = (await res.json()) as StatusResponse;
+      const d = (await res.json()) as PulseStatus;
 
       // Highlight containers that appeared since the previous poll (not on first load).
       const names = new Set((d.containers ?? []).map((c) => String(c.name || "unnamed")));
@@ -43,26 +47,25 @@ export function usePulse() {
 
       const now = new Date();
       lastOkRef.current = now;
+      push({ t: now.getTime(), cpu: num(d.cpu), ram: num(d.ram_pct), disk: num(d.disk_pct) });
       setData(d);
       setLastOk(now);
       setError(null);
-      setState("live");
+      setConnection("online");
     } catch (e) {
       const err = e as Error;
       setError(err.name === "AbortError" ? "Request timed out" : err.message);
-      setState("down");
+      setConnection("offline");
     } finally {
-      clearTimeout(t);
+      clearTimeout(timer);
       inFlight.current = false;
       setLoading(false);
       setCountdown(REFRESH_INTERVAL_S);
     }
-  }, []);
+  }, [push]);
 
-  // Initial load
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // 1s ticker driving the countdown
   useEffect(() => {
     const id = setInterval(() => setCountdown((c) => Math.max(c - 1, 0)), 1000);
     return () => clearInterval(id);
@@ -72,7 +75,6 @@ export function usePulse() {
     if (countdown === 0) void refresh();
   }, [countdown, refresh]);
 
-  // Refresh immediately when the tab becomes visible again with stale data
   useEffect(() => {
     const onVis = () => {
       const ok = lastOkRef.current;
@@ -82,5 +84,8 @@ export function usePulse() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [refresh]);
 
-  return { data, state, error, lastOk, countdown, loading, newNames, refresh };
+  return {
+    data, connection, error, lastOk, countdown, loading, newNames, refresh,
+    samples: history.samples, clearHistory: history.clear,
+  };
 }

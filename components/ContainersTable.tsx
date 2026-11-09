@@ -1,7 +1,7 @@
 import type { Container } from "@/lib/types";
 import { containerState } from "@/lib/format";
 import { Badge } from "./Badge";
-import { IconTile } from "./Icons";
+import { Icon } from "./Icons";
 
 function Image({ image }: { image?: string }) {
   const img = String(image || "—");
@@ -12,17 +12,15 @@ function Image({ image }: { image?: string }) {
   return <span className="image">{img}</span>;
 }
 
-export function ContainersTable({
-  containers, newNames,
-}: { containers: Container[] | null; newNames: Set<string> }) {
+export function ContainersTable({ containers, newNames }: { containers: Container[] | null; newNames: Set<string> }) {
   const items = containers ? [...containers].sort((a, b) => String(a.name).localeCompare(String(b.name))) : null;
 
   return (
     <section className="panel" aria-label="Docker containers">
       <div className="panel-head">
-        <IconTile name="box" color="var(--accent)" />
-        <h2>Containers</h2>
-        <span className="count">{items?.length ? `${items.length} discovered` : ""}</span>
+        <Icon name="box" />
+        <h3>Containers</h3>
+        <span className="right">{items?.length ? `${items.length} discovered` : ""}</span>
       </div>
       <table>
         <thead><tr><th>Name</th><th>Status</th><th>Image</th></tr></thead>
@@ -36,18 +34,13 @@ export function ContainersTable({
             const st = containerState(c.status, c.health);
             return (
               <tr key={name} className={newNames.has(name) ? "new" : ""}>
-                <td className="c-name">
-                  <div className="ctr-name">
-                    <IconTile name="box" color={st.up ? "var(--accent)" : "var(--red)"} />
-                    {name}
-                  </div>
-                </td>
+                <td className="c-name"><div className="ctr-name"><span className={`dot ${st.up ? "ok" : "crit"}`} />{name}</div></td>
                 <td className="c-status" data-label="Status">
                   <div className="status-cell">
-                    {st.up ? <Badge tone="green">Up</Badge> : <Badge tone="red">Down</Badge>}
-                    {st.health === "healthy" && <Badge tone="blue">Healthy</Badge>}
-                    {st.health === "unhealthy" && <Badge tone="red">Unhealthy</Badge>}
-                    {st.health === "starting" && <Badge tone="amber">Starting</Badge>}
+                    {st.up ? <Badge tone="ok">Up</Badge> : <Badge tone="crit">Down</Badge>}
+                    {st.health === "healthy" && <Badge tone="info">Healthy</Badge>}
+                    {st.health === "unhealthy" && <Badge tone="crit">Unhealthy</Badge>}
+                    {st.health === "starting" && <Badge tone="warn">Starting</Badge>}
                     <span className="uptime">{st.uptime}</span>
                   </div>
                 </td>

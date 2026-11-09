@@ -1,52 +1,38 @@
-/** Shape of the JSON returned by the VPS `/api/status` endpoint. Most values arrive as strings. */
-export type Scalar = string | number | null | undefined;
+/**
+ * Contract for GET {PULSE_API_URL}/api/status.
+ * All scalars are strings — parse numbers with `num()` from ./format.
+ */
+export type Container = { name: string; status: string; image: string; health: string };
 
-export interface Container {
-  name?: string;
-  status?: string;
-  image?: string;
-  health?: string;
-}
+export type AlertLevel = "info" | "warning" | "error";
+export type Alert = { time: string; level: AlertLevel; message: string };
 
-export interface FailedService {
-  name: string;
-  severity?: string;
-  since?: string;
-}
+export type PulseStatus = {
+  time: string;
+  cpu: string;
+  cpu_cores: string;
+  load_avg: string;
+  ram_pct: string;
+  ram_used_gb: string;
+  ram_total_gb: string;
+  disk_pct: string;
+  disk_used: string;
+  disk_total: string;
+  uptime: string;
+  boot_time: string;
+  nginx: string;
+  nginx_config_test: string;
+  containers: Container[];
+  running_count: string;
+  total_count: string;
+  failed_services: string;
+  alerts: Alert[];
+  last_backup: string;
+  backup_status: string;
+  backup_size: string;
+  backup_upload: string;
+};
 
-export interface Alert {
-  time?: string;
-  timestamp?: string;
-  level?: string;
-  severity?: string;
-  message?: string;
-  title?: string;
-}
-
-export interface StatusResponse {
-  time?: string;
-  cpu?: Scalar;
-  cpu_cores?: Scalar;
-  load_avg?: string | number[];
-  ram_pct?: Scalar;
-  ram_used_gb?: Scalar;
-  ram_total_gb?: Scalar;
-  disk_pct?: Scalar;
-  disk_used?: Scalar;
-  disk_total?: Scalar;
-  uptime?: string;
-  boot_time?: string;
-  nginx?: string;
-  nginx_config_test?: Scalar;
-  nginx_test?: Scalar;
-  containers?: Container[];
-  running_count?: Scalar;
-  total_count?: Scalar;
-  failed_services?: string | (string | FailedService)[];
-  alerts?: Alert[];
-  last_backup?: string;
-  backup_status?: string;
-  backup_size?: Scalar;
-  backup_upload?: Scalar;
-  upload_status?: Scalar;
-}
+/** One point of locally collected usage history. */
+export type Sample = { t: number; cpu: number | null; ram: number | null; disk: number | null };
+export type MetricKey = "cpu" | "ram" | "disk";

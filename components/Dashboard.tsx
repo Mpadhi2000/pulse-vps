@@ -1,67 +1,118 @@
 "use client";
 
 import { usePulse } from "@/lib/usePulse";
-import { API_URL } from "@/lib/config";
-import { relTime } from "@/lib/format";
+import { PULSE_API_URL, REFRESH_INTERVAL_S } from "@/lib/config";
+import { degradedReasons, relTime } from "@/lib/format";
 import { Icon } from "./Icons";
-import { MetricCards } from "./MetricCards";
+import { ThemeToggle } from "./ThemeToggle";
+import { StatGrid } from "./StatGrid";
+import { UsageChart } from "./UsageChart";
 import { ContainersTable } from "./ContainersTable";
 import { LowerPanels } from "./LowerPanels";
 
 const apiHost = (() => {
-  try { return new URL(API_URL, "https://pulse.mayankpadhi.in").hostname; }
-  catch { return "pulse.mayankpadhi.in"; }
+  try { return new URL(PULSE_API_URL).hostname; } catch { return "pulse.mayankpadhi.in"; }
 })();
 
-const LIVE_TEXT = { wait: "Connecting…", live: "Live", down: "Offline" } as const;
-
 export function Dashboard() {
-  const { data, state, error, lastOk, countdown, loading, newNames, refresh } = usePulse();
-  const offline = state === "down";
+  const { data, connection, error, lastOk, countdown, loading, newNames, refresh, samples, clearHistory } = usePulse();
+  const reasons = data ? degradedReasons(data) : [];
+  const offline = connection === "offline";
+
+  const status =
+    connection === "connecting" ? { dot: "", text: "Connecting…", title: "Checking systems" }
+    : offline ? { dot: "crit", text: "Offline", title: "Can’t reach the server" }
+    : reasons.length ? { dot: "warn", text: "Degraded", title: "Some systems degraded" }
+    : { dot: "ok", text: "Operational", title: "All systems operational" };
 
   return (
-    <div className={`wrap${offline && lastOk ? " stale" : ""}`}>
-      <div className={`banner${offline ? " show" : ""}`} role="alert">
-        <Icon name="wifi-off" />
-        <span>Connection lost — can&apos;t reach <code>/api/status</code>. Retrying…</span>
-        <span className="sub">{lastOk ? `Last good data ${relTime(lastOk)}` : error ?? ""}</span>
-      </div>
-
-      <header>
-        <div className="brand">
-          <div className="logo"><Icon name="pulse" /></div>
-          <div>
-            <h1>Pulse</h1>
-            <p>{apiHost}</p>
+    <div className={offline && lastOk ? "stale" : undefined}>
+      <nav className="nav">
+        <div className="container nav-inner">
+          <div className="brand">
+            <span className="logo"><Icon name="pulse" /></span>
+            Pulse
+          </div>
+          <span className="slash">/</span>
+          <span className="host">{apiHost}</span>
+          <div className="nav-right">
+            <span className="pill"><span className={`dot ${status.dot}`} />{status.text}</span>
+            <ThemeToggle />
           </div>
         </div>
-        <div className={`live${state === "live" ? "" : ` ${state}`}`}>
-          <span className="dot" />
-          <span>{LIVE_TEXT[state]}</span>
+      </nav>
+
+      <header className="hero">
+        <div className="hero-bg" aria-hidden="true" />
+        <div className="container">
+          <span className="eyebrow"><span className={`dot ${status.dot}`} />{apiHost}</span>
+          <h1><span className="soft">{status.title}</span></h1>
+          <p className="lead">
+            Live CPU, memory and disk usage, containers, services and backups for the VPS — refreshed every {REFRESH_INTERVAL_S} seconds.
+          </p>
+          <div className="hero-actions">
+            <button type="button" className={`btn btn-primary${loading ? " spin" : ""}`} onClick={() => void refresh()}>
+              <Icon name="refresh" /> Refresh now
+            </button>
+            <a className="btn btn-secondary" href="#usage"><Icon name="chart" /> View usage</a>
+          </div>
+          <div className="hero-meta">
+            <span>Last updated <b>{lastOk ? lastOk.toLocaleTimeString("en-IN", { hour12: false }) : "never"}</b></span>
+            <span>Next refresh in <b>{countdown}s</b></span>
+          </div>
         </div>
       </header>
 
-      <MetricCards d={data} />
-      <ContainersTable containers={data ? data.containers ?? [] : null} newNames={newNames} />
-      <LowerPanels d={data} />
+      <main className="container">
+        {offline && (
+          <div className="banner" role="alert">
+            <Icon name="wifi-off" />
+            <span>Connection lost — can&apos;t reach <code>/api/status</code>. Retrying…</span>
+            <span className="sub">{lastOk ? `Last good data ${relTime(lastOk)}` : error ?? ""}</span>
+          </div>
+        )}
+        {!offline && reasons.length > 0 && (
+          <div className="banner warn" role="status">
+            <Icon name="alert" />
+            <span>Degraded: {reasons.join(", ")}</span>
+          </div>
+        )}
 
-      <footer>
-        <span>
-          <Icon name="clock" size={14} /> Last updated:{" "}
-          <b>{lastOk ? lastOk.toLocaleTimeString("en-IN", { hour12: false }) : "never"}</b>
-        </span>
-        <span>Server time: <b>{data?.time || "—"}</b></span>
-        <span>
-          Next refresh in <b>{countdown}</b>s
-          <button
-            className={`refresh-btn${loading ? " spin" : ""}`}
-            type="button"
-            aria-label="Refresh now"
-            onClick={() => void refresh()}
-          >
-            <Icon name="refresh" size={14} /> Refresh
-          </button>
-        </span>
+        <section className="section" aria-label="Overview">
+          <div className="section-head">
+            <div><h2>Overview</h2><p>Current readings from the server.</p></div>
+          </div>
+          <StatGrid d={data} samples={samples} />
+        </section>
+
+        <section className="section" id="usage" style={{ scrollMarginTop: 80 }}>
+          <div className="section-head">
+            <div><h2>Usage</h2><p>CPU, memory and disk over time.</p></div>
+          </div>
+          <UsageChart samples={samples} onClear={clearHistory} />
+        </section>
+
+        <section className="section">
+          <div className="section-head">
+            <div><h2>Workloads</h2><p>Docker containers running on the host.</p></div>
+          </div>
+          <ContainersTable containers={data ? data.containers ?? [] : null} newNames={newNames} />
+        </section>
+
+        <section className="section">
+          <div className="section-head">
+            <div><h2>Health</h2><p>Services, alerts and backups.</p></div>
+          </div>
+          <LowerPanels d={data} />
+        </section>
+      </main>
+
+      <footer className="footer">
+        <div className="container footer-inner">
+          <span><Icon name="pulse" size={14} /> <b>Pulse</b> · VPS status</span>
+          <span>Server time <b>{data?.time || "—"}</b></span>
+          <span>API <b className="mono">{apiHost}/api/status</b></span>
+        </div>
       </footer>
     </div>
   );

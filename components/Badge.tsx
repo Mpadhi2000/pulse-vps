@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-export type Tone = "green" | "red" | "blue" | "amber" | "gray";
+export type Tone = "ok" | "crit" | "warn" | "info" | "neutral";
 
-export function Badge({ tone, big, children }: { tone: Tone; big?: boolean; children: ReactNode }) {
-  return <span className={`badge b-${tone}${big ? " big-badge" : ""}`}>{children}</span>;
+export function Badge({ tone = "neutral", dot, lg, children }: { tone?: Tone; dot?: boolean; lg?: boolean; children: ReactNode }) {
+  return <span className={`badge ${tone}${dot ? " dotted" : ""}${lg ? " lg" : ""}`}>{children}</span>;
 }

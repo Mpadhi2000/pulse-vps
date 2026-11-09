@@ -36,7 +36,7 @@ jobs:
         env:
           # e.g. "/pulse-vps" for a project site, "" for a custom domain / user site
           NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-          NEXT_PUBLIC_API_URL: https://pulse.mayankpadhi.in/api/status
+          PULSE_API_URL: https://pulse.mayankpadhi.in
 
       - uses: actions/upload-pages-artifact@v3
         with:
